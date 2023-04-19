@@ -14,9 +14,9 @@ namespace Oven_Application
     class oGlobal
     {
         // Bit Version
-        private static string _applicationBitVersion = "64";
+        private static string _applicationBitVersion = "64bit";
 
-        public static string ApplicationBitVersion { get => _applicationBitVersion; }
+        public static string ApplicationBitVersion { get => _applicationBitVersion; set => _applicationBitVersion = value; }
 
         // Chat Thread 종료
         public static CancellationTokenSource cts = new CancellationTokenSource();

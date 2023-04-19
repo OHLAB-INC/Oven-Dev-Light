@@ -5,6 +5,8 @@ VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Oven_Application", "Oven_Application.csproj", "{EB09B661-A066-44A9-8CB6-9FD892448991}"
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Oven_Deploy_64bit_v02", "..\Oven_Deploy_64bit_v02\Oven_Deploy_64bit_v02.vdproj", "{8E5C23DF-C378-40E4-9876-72F3EBAB6B36}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,8 @@ Global
 		{EB09B661-A066-44A9-8CB6-9FD892448991}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EB09B661-A066-44A9-8CB6-9FD892448991}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EB09B661-A066-44A9-8CB6-9FD892448991}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E5C23DF-C378-40E4-9876-72F3EBAB6B36}.Debug|Any CPU.ActiveCfg = Debug
+		{8E5C23DF-C378-40E4-9876-72F3EBAB6B36}.Release|Any CPU.ActiveCfg = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

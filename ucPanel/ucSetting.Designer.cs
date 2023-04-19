@@ -95,7 +95,7 @@
             this.label2.BackColor = System.Drawing.Color.Transparent;
             this.label2.Font = new System.Drawing.Font("Century Gothic", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(78)))), ((int)(((byte)(103)))), ((int)(((byte)(235)))));
-            this.label2.Location = new System.Drawing.Point(36, 90);
+            this.label2.Location = new System.Drawing.Point(38, 93);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(40, 23);
             this.label2.TabIndex = 37;
@@ -107,7 +107,7 @@
             this.label3.BackColor = System.Drawing.Color.Transparent;
             this.label3.Font = new System.Drawing.Font("Century Gothic", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(78)))), ((int)(((byte)(103)))), ((int)(((byte)(235)))));
-            this.label3.Location = new System.Drawing.Point(36, 134);
+            this.label3.Location = new System.Drawing.Point(38, 139);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(40, 23);
             this.label3.TabIndex = 38;
@@ -123,13 +123,13 @@
             this.cboxSettingStore.FocusedState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(94)))), ((int)(((byte)(148)))), ((int)(((byte)(255)))));
             this.cboxSettingStore.Font = new System.Drawing.Font("Segoe UI", 10.2F);
             this.cboxSettingStore.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(68)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
-            this.cboxSettingStore.ItemHeight = 20;
+            this.cboxSettingStore.ItemHeight = 26;
             this.cboxSettingStore.ItemsAppearance.BackColor = System.Drawing.Color.White;
             this.cboxSettingStore.ItemsAppearance.Font = new System.Drawing.Font("굴림", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.cboxSettingStore.ItemsAppearance.ForeColor = System.Drawing.Color.Black;
             this.cboxSettingStore.Location = new System.Drawing.Point(114, 90);
             this.cboxSettingStore.Name = "cboxSettingStore";
-            this.cboxSettingStore.Size = new System.Drawing.Size(201, 26);
+            this.cboxSettingStore.Size = new System.Drawing.Size(201, 32);
             this.cboxSettingStore.TabIndex = 39;
             this.cboxSettingStore.SelectedIndexChanged += new System.EventHandler(this.cboxStore_SelectedIndexChanged);
             // 
@@ -143,10 +143,10 @@
             this.cboxSettingMachine.FocusedState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(94)))), ((int)(((byte)(148)))), ((int)(((byte)(255)))));
             this.cboxSettingMachine.Font = new System.Drawing.Font("Segoe UI", 10.2F);
             this.cboxSettingMachine.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(68)))), ((int)(((byte)(88)))), ((int)(((byte)(112)))));
-            this.cboxSettingMachine.ItemHeight = 20;
-            this.cboxSettingMachine.Location = new System.Drawing.Point(114, 131);
+            this.cboxSettingMachine.ItemHeight = 26;
+            this.cboxSettingMachine.Location = new System.Drawing.Point(114, 134);
             this.cboxSettingMachine.Name = "cboxSettingMachine";
-            this.cboxSettingMachine.Size = new System.Drawing.Size(201, 26);
+            this.cboxSettingMachine.Size = new System.Drawing.Size(201, 32);
             this.cboxSettingMachine.TabIndex = 40;
             // 
             // label4
@@ -433,6 +433,7 @@
             this.lbLog.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.lbLog.ForeColor = System.Drawing.SystemColors.WindowFrame;
             this.lbLog.FormattingEnabled = true;
+            this.lbLog.HorizontalScrollbar = true;
             this.lbLog.ItemHeight = 15;
             this.lbLog.Location = new System.Drawing.Point(393, 301);
             this.lbLog.Name = "lbLog";

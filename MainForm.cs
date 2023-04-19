@@ -29,13 +29,10 @@ namespace Oven_Application
         private void MainForm_Load(object sender, EventArgs e)
         {
             oGlobal.LoadSettingValues();
-
             notifyIcon1.Visible = false;
             panelMain.Controls.Clear();
             panelMain.Controls.Add(ucSetting);
-
             btnSetting.Checked = true;
-
         }
 
         private void MainForm_Resize(object sender, EventArgs e)
@@ -45,15 +42,12 @@ namespace Oven_Application
                 Hide();
                 notifyIcon1.Visible = true;
             }
-
         }
 
         private void btnMenu_Click(object sender, EventArgs e)
         {
-
             Guna2Button btn = sender as Guna2Button;
             string aa = string.Empty;
-
             switch (btn.Name)
             {
                 case "btnSetting":
@@ -68,10 +62,8 @@ namespace Oven_Application
                     panelMain.Controls.Clear();
                     panelMain.Controls.Add(ucChat);
                     break;
-
             }
         }
-
 
         #region Moving Window
         // 메인창 최소화 버튼
@@ -103,7 +95,6 @@ namespace Oven_Application
             {
                 Application.Exit(); // 추후 창만 닫는거로
             }
-            
         }
 
         // 메인 창 무빙
@@ -164,10 +155,6 @@ namespace Oven_Application
                 notifyIcon1.ContextMenuStrip.Show(new Point(Cursor.Position.X + 1, Cursor.Position.Y + 1));
             }
         }
-
-
         #endregion
-
-
     }
 }

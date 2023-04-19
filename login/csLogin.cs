@@ -53,18 +53,25 @@ namespace Oven_Application
             string osBitVersion = string.Empty;
             if (csLogin.InternalCheckIsWow64())
             {
-                osBitVersion = "64";
+                osBitVersion = "64bit";
             }
             else
             {
-                osBitVersion = "32";
+                osBitVersion = "32bit";
             }
 
-            if (osBitVersion == oGlobal.ApplicationBitVersion)
+            try
             {
-                return true;
+                if (oGlobal.ApplicationBitVersion == osBitVersion)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }                
             }
-            else
+            catch(Exception ex)
             {
                 return false;
             }

@@ -37,8 +37,12 @@ namespace Oven_Application.ucPanel
                 // Properties에 저장되어있는 경로에 없을 경우
                 if (_directories.Count == 0)
                 {
+                    //string[] currentDirectoryArray = { Application.StartupPath, "virtual_program", oGlobal.ApplicationBitVersion };
+                    //string currentDirectory = Path.Combine(currentDirectoryArray);
                     string currentDirectory = Application.StartupPath;
-                    DirSearch(currentDirectory);
+                    string parentDirectory = Directory.GetParent(currentDirectory).FullName;
+
+                    DirSearch(parentDirectory);
                     if (_directories.Count == 0)
                     {
                         // If not exists Check All Directory
@@ -104,12 +108,16 @@ namespace Oven_Application.ucPanel
             {
                 string res = CheckSerialPortList();
 
+                lbLog_Dispatcher($"Serial Port : {res}");
+
                 if (!string.IsNullOrEmpty(res))
                 {
                     if (res == "retry")
                     {
                         // retry면 새롭게 Port를 생성해야한다.
-                        string dummyString = ExecuteSetupcExe("install PortName=COM# PortName=COM#");
+                        // string dummyString = ExecuteSetupcExe("install PortName=COM# PortName=Com#"); // COM#이 존재하면 에러발생  3.0.0.0버젼
+                        string dummyString = ExecuteSetupcExe("install - -"); //   2.2.2.2버젼
+                        Thread.Sleep(2000);
                         string resTry = CheckSerialPortList();
                         if (!string.IsNullOrEmpty(resTry))
                         {
@@ -187,7 +195,7 @@ namespace Oven_Application.ucPanel
         {
 
             await Task.Run(() => {
-                lbLog_Dispatcher("Hooking Process ongoing");
+                
                 // Serial Port Information Setting
                 SerialPort serialPort = new SerialPort(oSetting.PairSerialPort); // 여기에 실제로 PairSerialPort가 들어와야한다. Redirection이기 때문
                 serialPort.BaudRate = Int32.Parse(oSetting.SerialBaudRate);
@@ -212,12 +220,16 @@ namespace Oven_Application.ucPanel
                 try { serialPort.Open(); }
                 catch { MessageBox.Show("Serial Port가 사용 중에 있습니다."); }
 
-                try { printerPort.Open(); }
-                catch { MessageBox.Show("Printer Port가 사용 중에 있습니다."); }
+                if (cbPrinter.Checked)
+                {
+                    try { printerPort.Open(); }
+                    catch { MessageBox.Show("Printer Port가 사용 중에 있습니다."); }
+                }
 
-                if (serialPort.IsOpen && printerPort.IsOpen)
+                if ((!cbPrinter.Checked && serialPort.IsOpen) || (cbPrinter.Checked  && printerPort.IsOpen && serialPort.IsOpen) )
                 {
                     _hookingProcessContinue = true;
+                    lbLog_Dispatcher("Hooking Process ongoing");
                 }
 
                 while (_hookingProcessContinue)
@@ -258,6 +270,8 @@ namespace Oven_Application.ucPanel
                             }
                             catch (IOException) { }
                             catch (TimeoutException) { }
+                            catch (InvalidOperationException) { } //포트가 닫혀있습니다
+                            
 
                             lbLog_Dispatcher($"({dateTT})영수증 주문이 들어왔습니다. ");
                         }
@@ -315,6 +329,7 @@ namespace Oven_Application.ucPanel
 
         public static string ExecuteSetupcExe(string query)
         {
+
             var clipProcess = new Process()
             {
                 StartInfo = new ProcessStartInfo(oSetting.ProgramName, query)
@@ -334,9 +349,19 @@ namespace Oven_Application.ucPanel
 
         private string CheckSerialPortList()
         {
+            // *** 현재 변경된 2.2.2.2 com0com은 realportname이 없다
+
+            // 아무것도 없으면 그냥 com# 생성 후, 입력 포트하고 페어포트 박어버리기
+            // 사용되고 있으면 사용되고 있다고 알려주고,
+            // 사용되고 있지 않을 경우, pair가 사용되고 있는지 확인
+            // pair가 사용되고 있지 않을 경우, 연결. 
+            // 사용되고 있을 경우, COM# 잇으면 거기다 박고, 아니면 새로 하나 만들어서 박아버리기
+
             List<string> virtualPortList = new List<string>();
             IDictionary<string, string> serialPortDict = new Dictionary<string, string>();
             IDictionary<string, string> realSerialPortDict = new Dictionary<string, string>();
+
+            List<string> serialSharpPortList = new List<string>(); // COM#인 virtualport 번호
 
             List<string> programTotalPortList = new List<string>();
 
@@ -348,6 +373,7 @@ namespace Oven_Application.ucPanel
 
 
             string stringOut = ExecuteSetupcExe("list");
+            //lbLog_Dispatcher($"List : {stringOut}");
             if (!string.IsNullOrEmpty(stringOut))
             {
                 // setupc.exe list Parsing
@@ -388,6 +414,10 @@ namespace Oven_Application.ucPanel
                                         endPointPort = tmpInnerValue;
                                     }
                                 }
+                                if (endPointPort == "COM#")
+                                {
+                                    serialSharpPortList.Add(tmpVirtualPort);
+                                }
                             }
                         }
                     }
@@ -396,8 +426,203 @@ namespace Oven_Application.ucPanel
                         programTotalPortList.Add(endPointPort);  // 실제로 보여지는 Port 이름에 대한 List}
                     }
                 }
+
                 // All Port Check
-                string[] windowSerialPortList = SerialPort.GetPortNames(); // 실제로 Port 이름이 다나온다, CNCA0, PortName의 COM3, RealPortName의 COM4
+                string[] windowSerialPortList = SerialPort.GetPortNames(); // 실제로 Port 이름이 다나온다, CNCA0, PortName의 COM3, RealPortName의 COM4, COM#
+                foreach (string str in windowSerialPortList)
+                {
+                    if (!programTotalPortList.Contains(str))
+                    {
+                        // Window List에는 있지만, Program에 없는 COM는 사용된다고 간주
+                        disablePortList.Add(str);
+                    }
+                    else
+                    {
+                        if (oSetting.PrinterPort == str)
+                        {
+                            // Print 설정 Port는 사용된다고 간주
+                            disablePortList.Add(str);
+                        }
+                        else
+                        {
+                            if (str.Substring(0, 3) == "CNC")
+                            {
+                                if (!string.IsNullOrEmpty(str))
+                                {
+                                    if (!enableVirtualPortList.Contains(str))
+                                    {
+                                        enableVirtualPortList.Add(str);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // Connection을 해보고, Open이 안되는 Port는 사용된다고 간주
+                                SerialPort tmpPort = new SerialPort(str);
+                                try
+                                {
+                                    tmpPort.Open();
+                                    enablePortList.Add(str);
+
+                                    // 가용한 virtual port list를 위한 작업
+                                    string strKey = serialPortDict.Where(kvp => kvp.Value == str).Select(kvp => kvp.Key).FirstOrDefault();
+                                    if (!string.IsNullOrEmpty(strKey))
+                                    {
+                                        if (!enableVirtualPortList.Contains(strKey))
+                                        {
+                                            enableVirtualPortList.Add(strKey);
+                                        }
+                                    }
+
+                                    string strKeyReal = realSerialPortDict.Where(kvp => kvp.Value == str).Select(kvp => kvp.Key).FirstOrDefault();
+                                    if (!string.IsNullOrEmpty(strKeyReal))
+                                    {
+                                        if (!enableVirtualPortList.Contains(strKeyReal))
+                                        {
+                                            enableVirtualPortList.Add(strKeyReal);
+                                        }
+                                    }
+                                }
+                                catch (System.InvalidOperationException)
+                                {
+                                    disablePortList.Add(str);
+                                }
+                                catch (Exception ex)
+                                {
+                                    disablePortList.Add(str);
+                                }
+                                finally
+                                {
+                                    if (tmpPort.IsOpen)
+                                    {
+                                        tmpPort.Close();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                //
+                //disablePortList 에서 pair인 것 추가 해야함
+
+
+                if (disablePortList.Contains(oSetting.SerialPort))
+                {
+                    MessageBox.Show("Serial Port가 이미 사용 중입니다. 다른 번호로 변경 부탁드립니다.");
+                    return string.Empty;
+                }
+                else
+                {
+                    if (enablePortList.Contains(oSetting.SerialPort))
+                    {
+                        // oSetting.SerialPort가 PortName에 있는지 확인
+                        string key = serialPortDict.Where(kvp => kvp.Value == oSetting.SerialPort).Select(kvp => kvp.Key).FirstOrDefault();
+                        if (!string.IsNullOrEmpty(key))
+                        {
+                            // Serial Port로 virtual port를 검색하고, 해당 pair virtual port를 찾아낸 다음, 
+                            // key CNCA0 or CNCB0
+                            string pairKey = string.Empty;
+                            string tmpNum = string.Empty;
+                            string tmpAB = key.Substring(3, 1);
+                            tmpNum = key.Substring(4);
+
+                            if (tmpAB == "A")
+                            {
+                                pairKey = "CNC" + "B" + tmpNum;
+                            }
+                            else
+                            {
+                                pairKey = "CNC" + "A" + tmpNum;
+                            }
+
+                            if (enableVirtualPortList.Contains(pairKey)) // Pair key가 사용 가능한 상태일 경우
+                            {
+                                string pairSerialPort = serialPortDict.Where(kvp => kvp.Key == pairKey).Select(kvp => kvp.Value).FirstOrDefault();
+                                if (!string.IsNullOrEmpty(pairSerialPort))
+                                {
+                                    //oSetting.PairSerialPort = pairSerialPort;
+                                    return pairSerialPort;
+                                }
+                                else
+                                {
+                                    // realSerialPortDict에 없을 경우, 
+                                    string tmpPairRealSerialPort = string.Empty;
+                                    // disable에는 없는 번호
+                                    // oSetting.SerialPort와는 다른 번호
+                                    for (int i = 1; i < 100; i++)
+                                    {
+                                        tmpPairRealSerialPort = $"COM{i}";
+                                        if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
+                                        {
+                                            // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
+                                            break;
+                                        }
+                                    }
+                                    string stringOut3 = ExecuteSetupcExe($"change {pairKey} PortName={tmpPairRealSerialPort}");
+                                    Thread.Sleep(2000);
+
+                                    //oSetting.PairSerialPort = tmpPairRealSerialPort;
+                                    return tmpPairRealSerialPort;
+                                }
+                            }
+                            else
+                            {
+                                // Pair key가 사용 가능하지 않을 경우
+                                MessageBox.Show("Serial Port가 이미 사용 중입니다. 변경 부탁드립니다.");
+                                return string.Empty;
+                            }
+                        }
+                        else
+                        {
+                            // oSetting.SerialPort가 PortName에 없을 경우,
+                            // 가용한 enableVirtual선택 없을 경우, 새로 생성
+
+                            string tmpPairRealSerialPort = string.Empty;
+                            // disable에는 없는 번호
+                            // oSetting.SerialPort와는 다른 번호
+                            for (int i = 1; i < 100; i++)
+                            {
+                                tmpPairRealSerialPort = $"COM{i}";
+                                if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
+                                {
+                                    // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
+                                    break;
+                                }
+                            }
+                            string stringOut3 = ExecuteSetupcExe($"install PortName={oSetting.SerialPort} PortName={tmpPairRealSerialPort}");
+                            Thread.Sleep(2000);
+
+                            return tmpPairRealSerialPort;
+                        }
+                    }
+                    else
+                    {
+                        // oSetting.SerialPort가 PortName에 없을 경우,
+                        // 가용한 enableVirtual선택 없을 경우, 새로 생성
+
+                        string tmpPairRealSerialPort = string.Empty;
+                        // disable에는 없는 번호
+                        // oSetting.SerialPort와는 다른 번호
+                        for (int i = 1; i < 100; i++)
+                        {
+                            tmpPairRealSerialPort = $"COM{i}";
+                            if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
+                            {
+                                // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
+                                break;
+                            }
+                        }
+                        string stringOut3 = ExecuteSetupcExe($"install PortName={oSetting.SerialPort} PortName={tmpPairRealSerialPort}");
+                        Thread.Sleep(2000);
+
+                        return tmpPairRealSerialPort;
+                    }
+
+                }
+            }
+            else
+            {
+                string[] windowSerialPortList = SerialPort.GetPortNames(); // 실제로 Port 이름이 다나온다, CNCA0, PortName의 COM3, RealPortName의 COM4, COM#
                 foreach (string str in windowSerialPortList)
                 {
                     if (!programTotalPortList.Contains(str))
@@ -472,139 +697,24 @@ namespace Oven_Application.ucPanel
                     }
                 }
 
-
-                if (disablePortList.Contains(oSetting.SerialPort))
+                string tmpPairRealSerialPort = string.Empty;
+                // disable에는 없는 번호
+                // oSetting.SerialPort와는 다른 번호
+                for (int i = 1; i < 100; i++)
                 {
-                    MessageBox.Show("Serial Port가 이미 사용 중입니다. 변경 부탁드립니다.");
-                    return string.Empty;
-                }
-                else
-                {
-                    if (enablePortList.Contains(oSetting.SerialPort))
+                    tmpPairRealSerialPort = $"COM{i}";
+                    if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
                     {
-                        // oSetting.SerialPort가 RealPortName에 있는지 확인
-                        string key = realSerialPortDict.Where(kvp => kvp.Value == oSetting.SerialPort).Select(kvp => kvp.Key).FirstOrDefault();
-                        if (!string.IsNullOrEmpty(key))
-                        {
-                            // Serial Port로 virtual port를 검색하고, 해당 pair virtual port를 찾아낸 다음, 
-                            // key CNCA0 or CNCB0
-                            string pairKey = string.Empty;
-                            string tmpNum = string.Empty;
-                            string tmpAB = key.Substring(3, 1);
-                            tmpNum = key.Substring(4);
-
-                            if (tmpAB == "A")
-                            {
-                                pairKey = "CNC" + "B" + tmpNum;
-                            }
-                            else
-                            {
-                                pairKey = "CNC" + "A" + tmpNum;
-                            }
-
-                            if (enableVirtualPortList.Contains(pairKey)) // Pair key가 사용 가능한 상태일 경우
-                            {
-                                string pairSerialPort = realSerialPortDict.Where(kvp => kvp.Key == pairKey).Select(kvp => kvp.Value).FirstOrDefault();
-                                if (!string.IsNullOrEmpty(pairSerialPort))
-                                {
-                                    //oSetting.PairSerialPort = pairSerialPort;
-                                    return pairSerialPort;
-                                }
-                                else
-                                {
-                                    // realSerialPortDict에 없을 경우, 
-                                    string tmpPairRealSerialPort = string.Empty;
-                                    // disable에는 없는 번호
-                                    // oSetting.SerialPort와는 다른 번호
-                                    for (int i = 1; i < 100; i++)
-                                    {
-                                        tmpPairRealSerialPort = $"COM{i}";
-                                        if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
-                                        {
-                                            // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
-                                            break;
-                                        }
-                                    }
-                                    string stringOut2 = ExecuteSetupcExe($"change {pairKey} PortName=COM#");
-                                    string stringOut3 = ExecuteSetupcExe($"change {pairKey} RealPortName={tmpPairRealSerialPort}");
-
-                                    //oSetting.PairSerialPort = tmpPairRealSerialPort;
-                                    return tmpPairRealSerialPort;
-                                }
-                            }
-                            else
-                            {
-                                // Pair key가 사용 가능하지 않을 경우
-                                MessageBox.Show("Serial Port가 이미 사용 중입니다. 변경 부탁드립니다.");
-                                return string.Empty;
-                            }
-                        }
-                        else
-                        {
-                            // oSetting.SerialPort가 RealPortName에 없을 경우,
-                            // 가용한 enableVirtual선택 없을 경우, 새로 생성
-                            List<string> tmpCheckNumberOfVirtualPort = new List<string>();
-                            foreach (string str in enableVirtualPortList)
-                            {
-                                tmpCheckNumberOfVirtualPort.Add(str.Substring(4));
-                            }
-                            var result = tmpCheckNumberOfVirtualPort.GroupBy(item => item)
-                                                  .Select(item => new
-                                                  {
-                                                      Name = item.Key,
-                                                      Count = item.Count()
-                                                  })
-                                                  .OrderByDescending(item => item.Count)
-                                                  .ThenBy(item => item.Name)
-                                                  .Where(item => item.Count > 1)
-                                                  .ToList();
-                            if (result.Count > 0)
-                            {
-
-                                string tmpEnableVirtualPort = "CNCA" + result[0].Name.ToString();
-                                string tmpEnableVirtualPortPair = "CNCB" + result[0].Name.ToString();
-
-                                string tmpPairRealSerialPort = string.Empty;
-                                // disable에는 없는 번호
-                                // oSetting.SerialPort와는 다른 번호
-                                for (int i = 1; i < 100; i++)
-                                {
-                                    tmpPairRealSerialPort = $"COM{i}";
-                                    if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
-                                    {
-                                        // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
-                                        break;
-                                    }
-                                }
-
-                                string stringOut3 = ExecuteSetupcExe($"change {tmpEnableVirtualPort} PortName=COM#");
-                                string stringOut4 = ExecuteSetupcExe($"change {tmpEnableVirtualPort} RealPortName={oSetting.SerialPort}"); // Serial Port Setting
-
-                                string stringOut5 = ExecuteSetupcExe($"change {tmpEnableVirtualPortPair} PortName=COM#");
-                                string stringOut6 = ExecuteSetupcExe($"change {tmpEnableVirtualPortPair} RealPortName={tmpPairRealSerialPort}"); // Pair Serial Port Setting
-
-                                return tmpPairRealSerialPort;
-                            }
-                            else
-                            {
-                                //새로 생성해서 첨부터 다시...
-                                return "retry";
-                            }
-                        }
+                        // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
+                        break;
                     }
-                    else
-                    {
-                        // 새로 생성한 다음 change name 한다음 pair
-                        return "retry";
-                    }
-
                 }
+                string stringOut3 = ExecuteSetupcExe($"install PortName={oSetting.SerialPort} PortName={tmpPairRealSerialPort}");
+                Thread.Sleep(2000);
+                return tmpPairRealSerialPort;
             }
-            else
-            {
-                // 새로 생성한 다음 change name 한다음 pair
-                return "retry";
-            }
+
+
 
         } // Function Last
         #endregion
@@ -703,6 +813,341 @@ namespace Oven_Application.ucPanel
         }
         #endregion
 
+
+        private string CheckSerialPortList2()
+        {
+            List<string> virtualPortList = new List<string>();
+            IDictionary<string, string> serialPortDict = new Dictionary<string, string>();
+            IDictionary<string, string> realSerialPortDict = new Dictionary<string, string>();
+
+            List<string> serialSharpPortList = new List<string>(); // COM#인 virtualport 번호
+
+            List<string> programTotalPortList = new List<string>();
+
+            List<string> disablePortList = new List<string>();
+            List<string> enablePortList = new List<string>();
+
+            List<string> disableVirtualPortList = new List<string>();
+            List<string> enableVirtualPortList = new List<string>();
+
+
+            string stringOut = ExecuteSetupcExe("list");
+
+            lbLog_Dispatcher($"List : {stringOut}");
+
+            if (!string.IsNullOrEmpty(stringOut))
+            {
+                // setupc.exe list Parsing
+                string[] stringOutList = stringOut.Split('\n');
+                for (int i = 0; i < stringOutList.Length; i++)
+                {
+                    string tmpString = stringOutList[i].Trim(); // 공백 제거
+                    string endPointPort = string.Empty;
+                    if (tmpString.Length > 0)
+                    {
+                        string[] tmpStringList = tmpString.Split(' ');
+
+                        string tmpVirtualPort = tmpStringList[0].ToString();// CNCA0, CNCB0 
+                        endPointPort = tmpStringList[0].ToString();// CNCA0, CNCB0 
+                        virtualPortList.Add(tmpVirtualPort);
+
+                        if (tmpStringList.Length > 1)
+                        {
+                            string[] tmpPortNameStringList = tmpStringList[1].Split(',');
+                            foreach (string t in tmpPortNameStringList)
+                            {
+                                // Key는 PortName 일 수도, RealPortName 일 수도 있다.
+                                string tmpInnerKey = t.Split('=')[0];
+                                string tmpInnerValue = t.Split('=')[1];
+                                if (tmpInnerKey == "PortName")
+                                {
+                                    if (tmpInnerValue != "-")
+                                    {
+                                        serialPortDict.Add(tmpVirtualPort, tmpInnerValue); // Port Name { CNCA0 : COM#, }
+                                        endPointPort = tmpInnerValue;
+
+                                    }
+                                }
+                                else if (tmpInnerKey == "RealPortName")
+                                {
+                                    if (tmpInnerValue != "-")
+                                    {
+                                        realSerialPortDict.Add(tmpVirtualPort, tmpInnerValue); // Real Port Name { CNCA0 : COM#, }
+                                        endPointPort = tmpInnerValue;
+                                    }
+                                }
+
+                                if (endPointPort == "COM#")
+                                {
+                                    serialSharpPortList.Add(tmpVirtualPort);
+                                }
+
+                            }
+                        }
+                    }
+
+                    lbLog_Dispatcher($"List : {stringOut}");
+
+                    if (!string.IsNullOrEmpty(endPointPort))
+                    {
+                        programTotalPortList.Add(endPointPort);  // 실제로 보여지는 Port 이름에 대한 List}
+                    }
+                }
+                // All Port Check
+                string[] windowSerialPortList = SerialPort.GetPortNames(); // 실제로 Port 이름이 다나온다, CNCA0, PortName의 COM3, RealPortName의 COM4, COM#
+                foreach (string str in windowSerialPortList)
+                {
+                    if (!programTotalPortList.Contains(str))
+                    {
+                        // Window List에는 있지만, Program에 없는 COM는 사용된다고 간주
+                        disablePortList.Add(str);
+                    }
+                    else
+                    {
+                        if (oSetting.PrinterPort == str)
+                        {
+                            // Print 설정 Port는 사용된다고 간주
+                            disablePortList.Add(str);
+                        }
+                        else
+                        {
+                            if (str.Substring(0, 3) == "CNC")
+                            {
+                                if (!string.IsNullOrEmpty(str))
+                                {
+                                    if (!enableVirtualPortList.Contains(str))
+                                    {
+                                        enableVirtualPortList.Add(str);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // Connection을 해보고, Open이 안되는 Port는 사용된다고 간주
+                                SerialPort tmpPort = new SerialPort(str);
+                                try
+                                {
+                                    tmpPort.Open();
+                                    enablePortList.Add(str);
+
+                                    // 가용한 virtual port list를 위한 작업
+                                    string strKey = serialPortDict.Where(kvp => kvp.Value == str).Select(kvp => kvp.Key).FirstOrDefault();
+                                    if (!string.IsNullOrEmpty(strKey))
+                                    {
+                                        if (!enableVirtualPortList.Contains(strKey))
+                                        {
+                                            enableVirtualPortList.Add(strKey);
+                                        }
+                                    }
+
+                                    string strKeyReal = realSerialPortDict.Where(kvp => kvp.Value == str).Select(kvp => kvp.Key).FirstOrDefault();
+                                    if (!string.IsNullOrEmpty(strKeyReal))
+                                    {
+                                        if (!enableVirtualPortList.Contains(strKeyReal))
+                                        {
+                                            enableVirtualPortList.Add(strKeyReal);
+                                        }
+                                    }
+                                }
+                                catch (System.InvalidOperationException)
+                                {
+                                    disablePortList.Add(str);
+                                }
+                                catch (Exception ex)
+                                {
+                                    disablePortList.Add(str);
+                                }
+                                finally
+                                {
+                                    if (tmpPort.IsOpen)
+                                    {
+                                        tmpPort.Close();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                //
+                //disablePortList 에서 pair인 것 추가 해야함
+
+
+                if (disablePortList.Contains(oSetting.SerialPort))
+                {
+                    MessageBox.Show("Serial Port가 이미 사용 중입니다. 다른 번호로 변경 부탁드립니다.");
+                    return string.Empty;
+                }
+                else
+                {
+                    if (enablePortList.Contains(oSetting.SerialPort))
+                    {
+                        // oSetting.SerialPort가 RealPortName에 있는지 확인
+                        string key = realSerialPortDict.Where(kvp => kvp.Value == oSetting.SerialPort).Select(kvp => kvp.Key).FirstOrDefault();
+                        if (!string.IsNullOrEmpty(key))
+                        {
+                            // Serial Port로 virtual port를 검색하고, 해당 pair virtual port를 찾아낸 다음, 
+                            // key CNCA0 or CNCB0
+                            string pairKey = string.Empty;
+                            string tmpNum = string.Empty;
+                            string tmpAB = key.Substring(3, 1);
+                            tmpNum = key.Substring(4);
+
+                            if (tmpAB == "A")
+                            {
+                                pairKey = "CNC" + "B" + tmpNum;
+                            }
+                            else
+                            {
+                                pairKey = "CNC" + "A" + tmpNum;
+                            }
+
+                            if (enableVirtualPortList.Contains(pairKey)) // Pair key가 사용 가능한 상태일 경우
+                            {
+                                string pairSerialPort = realSerialPortDict.Where(kvp => kvp.Key == pairKey).Select(kvp => kvp.Value).FirstOrDefault();
+                                if (!string.IsNullOrEmpty(pairSerialPort))
+                                {
+                                    //oSetting.PairSerialPort = pairSerialPort;
+                                    return pairSerialPort;
+                                }
+                                else
+                                {
+                                    // realSerialPortDict에 없을 경우, 
+                                    string tmpPairRealSerialPort = string.Empty;
+                                    // disable에는 없는 번호
+                                    // oSetting.SerialPort와는 다른 번호
+                                    for (int i = 1; i < 100; i++)
+                                    {
+                                        tmpPairRealSerialPort = $"COM{i}";
+                                        if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
+                                        {
+                                            // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
+                                            break;
+                                        }
+                                    }
+                                    string stringOut2 = ExecuteSetupcExe($"change {pairKey} PortName=COM#");
+                                    lbLog_Dispatcher($"stringout2 : {stringOut2}");
+                                    Thread.Sleep(1000);
+                                    string stringOut3 = ExecuteSetupcExe($"change {pairKey} RealPortName={tmpPairRealSerialPort}");
+                                    lbLog_Dispatcher($"stringout3 : {stringOut3}");
+
+                                    lbLog_Dispatcher($"stringout3 : {tmpPairRealSerialPort}");
+
+                                    //oSetting.PairSerialPort = tmpPairRealSerialPort;
+                                    return tmpPairRealSerialPort;
+                                }
+                            }
+
+                            else
+                            {
+                                // Pair key가 사용 가능하지 않을 경우
+                                MessageBox.Show("Serial Port가 이미 사용 중입니다. 변경 부탁드립니다.");
+                                return string.Empty;
+                            }
+                        }
+                        else
+                        {
+                            // oSetting.SerialPort가 RealPortName에 없을 경우,
+                            // 가용한 enableVirtual선택 없을 경우, 새로 생성
+                            List<string> tmpCheckNumberOfVirtualPort = new List<string>();
+                            foreach (string str in enableVirtualPortList)
+                            {
+                                tmpCheckNumberOfVirtualPort.Add(str.Substring(4));
+                            }
+                            var result = tmpCheckNumberOfVirtualPort.GroupBy(item => item)
+                                                  .Select(item => new
+                                                  {
+                                                      Name = item.Key,
+                                                      Count = item.Count()
+                                                  })
+                                                  .OrderByDescending(item => item.Count)
+                                                  .ThenBy(item => item.Name)
+                                                  .Where(item => item.Count > 1)
+                                                  .ToList();
+                            if (result.Count > 0)
+                            {
+
+                                string tmpEnableVirtualPort = "CNCA" + result[0].Name.ToString();
+                                string tmpEnableVirtualPortPair = "CNCB" + result[0].Name.ToString();
+
+                                string tmpPairRealSerialPort = string.Empty;
+                                // disable에는 없는 번호
+                                // oSetting.SerialPort와는 다른 번호
+                                for (int i = 1; i < 100; i++)
+                                {
+                                    tmpPairRealSerialPort = $"COM{i}";
+                                    if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
+                                    {
+                                        // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
+                                        break;
+                                    }
+                                }
+
+                                string stringOut3 = ExecuteSetupcExe($"change {tmpEnableVirtualPort} PortName=COM#");
+                                Thread.Sleep(1000);
+                                string stringOut4 = ExecuteSetupcExe($"change {tmpEnableVirtualPort} RealPortName={oSetting.SerialPort}"); // Serial Port Setting
+                                Thread.Sleep(1000);
+                                string stringOut5 = ExecuteSetupcExe($"change {tmpEnableVirtualPortPair} PortName=COM#");
+                                Thread.Sleep(1000);
+                                string stringOut6 = ExecuteSetupcExe($"change {tmpEnableVirtualPortPair} RealPortName={tmpPairRealSerialPort}"); // Pair Serial Port Setting
+
+                                lbLog_Dispatcher($"stringout6 : {tmpEnableVirtualPortPair}, {tmpPairRealSerialPort}");
+
+                                return tmpPairRealSerialPort;
+                            }
+
+                            else
+                            {
+                                return "retry";
+                            }
+                        }
+                    }
+                    else if (enablePortList.Contains("COM#"))
+                    {
+                        // serialport가 com#일 경우
+                        // COM# 의 virtualport를 가져오고
+                        // change 해준다 (설정된 port로)
+                        //serialPortDict
+
+                        // disable에는 없는 번호
+                        // oSetting.SerialPort와는 다른 번호
+                        string tmpPairRealSerialPort = string.Empty;
+                        for (int i = 1; i < 100; i++)
+                        {
+                            tmpPairRealSerialPort = $"COM{i}";
+                            if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
+                            {
+                                // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
+                                break;
+                            }
+                        }
+                        if (disablePortList.Count > 1)
+                        {
+                            string stringOut7 = ExecuteSetupcExe($"change {serialSharpPortList[0]} RealPortName={oSetting.SerialPort}"); // Serial Port Setting
+                            string stringOut8 = ExecuteSetupcExe($"change {serialSharpPortList[1]} RealPortName={tmpPairRealSerialPort}"); // Serial Port Setting
+
+                            return tmpPairRealSerialPort;
+                        }
+                        else
+                        {
+                            string stringOut9 = ExecuteSetupcExe($"change {serialSharpPortList[0]} RealPortName={tmpPairRealSerialPort}"); // Serial Port Setting
+                            return "retry";
+                        }
+                    }
+                    else
+                    {
+                        // 새로 생성한 다음 change name 한다음 pair
+                        return "retry";
+                    }
+
+                }
+            }
+            else
+            {
+                // 새로 생성한 다음 change name 한다음 pair
+                return "retry";
+            }
+
+        } // Function Last
 
     }
 }

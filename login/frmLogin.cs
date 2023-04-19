@@ -25,7 +25,7 @@ namespace Oven_Application.login
 
         private void frmLogin_Load(object sender, EventArgs e)
         {
-            lblBit.Text = oGlobal.ApplicationBitVersion.ToString() + "Bit";
+            lblBit.Text = oGlobal.ApplicationBitVersion.ToString();
             _ID = Properties.Settings.Default.ID;
             _PASSWORD = Properties.Settings.Default.PASSWORD;
 
@@ -88,6 +88,7 @@ namespace Oven_Application.login
             // Application과 OS Bit Version 체크
             if (csLogin.applicationAndOsBitVersionCheck())
             {
+                //버전 체크 성공
                 try
                 {
                     bool loginSuccess = csLogin.CheckLogin(_ID, _PASSWORD);

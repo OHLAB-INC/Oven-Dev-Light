@@ -73,6 +73,7 @@ namespace Oven_Application.ucPanel
                 if (saveCheckBool)
                 {
                     btnSettingExecute.Enabled = false;
+
                     await SearchVP();
                     if (oSetting.IfExistVirtualProgram)
                     {
@@ -130,7 +131,7 @@ namespace Oven_Application.ucPanel
             lbLog.Items.Add("======= Puase Process ======= ");
 
             // 모든 Signal 초기화
-
+            btnSettingExecute.Enabled = true;
         }
 
         private void btnSettingExecuteInitialize()
@@ -141,6 +142,11 @@ namespace Oven_Application.ucPanel
             oSetting.IfReadyToHooking = false;
             _hookingProcessContinue = false;
             _uploadingProcessContinue = false;
+
+            lblVPC.Text = "-";
+            lblEnv.Text = "-";
+            lblPort.Text = "-"; 
+            lblDrive.Text = "-";
         }
 
 

@@ -13,7 +13,8 @@ namespace Oven_Application
     class oSetting
     {
         // URL 주소
-        private static string _URL = "http://localhost:5000"; // 추후 변경해야할 부분
+        // private static string _URL = "http://localhost:5000"; // 추후 변경해야할 부분
+        private static string _URL = "http://34.64.107.34:5000"; // 추후 변경해야할 부분
         public static string URL { get => _URL; }
 
         // Virtual Program Variable
@@ -27,7 +28,7 @@ namespace Oven_Application
         public static bool IfExistVirtualProgram { get => _ifExistVirtualProgram; set => _ifExistVirtualProgram = value; }
 
         // Environment Path Variable
-        private static string _envName = "path"; //setupc.exe 환경 변수 등록을 위한 변수
+        private static string _envName = "Path"; //setupc.exe 환경 변수 등록을 위한 변수
         public static string EnvName { get => _envName; }
 
         private static bool _ifExistEnvPath = false;
