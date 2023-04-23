@@ -22,7 +22,17 @@ namespace Oven_Application.ucPanel
 
             string[] paths = { Application.StartupPath, "temp", oSetting.SelectedStoreName, oSetting.SelectedMachineName };
             string tempSavePath = Path.Combine(paths);
-            string[] folderList = Directory.GetDirectories(tempSavePath);
+            string[] folderList = new string[0];
+            DirectoryInfo di = new DirectoryInfo(tempSavePath);
+
+            if (di.Exists == false)   //If New Folder not exits  
+            {
+                di.Create();             //create Folder  
+            }
+            else
+            {
+                folderList = Directory.GetDirectories(tempSavePath);
+            }            
 
             return folderList;
         }

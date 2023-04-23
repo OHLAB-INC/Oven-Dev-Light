@@ -19,5 +19,6 @@ namespace Oven_Application.common
 
         private static string _refreshToken = string.Empty;
         public static string RefreshToken { get => _refreshToken; set => _refreshToken = value; }
-    }
+   }
+
 }

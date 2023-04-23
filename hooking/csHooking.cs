@@ -235,11 +235,20 @@ namespace Oven_Application.ucPanel
                 while (_hookingProcessContinue)
                 {
                     string message = string.Empty;
+                    string RecvStr = string.Empty;
+                    int RecvSize = serialPort.BytesToRead;
+
                     try
                     {
-                        while (serialPort.BytesToRead > 0)
+                        while (RecvSize > 0)
                         {
-                            message += serialPort.ReadExisting();
+                            //message += serialPort.ReadExisting();
+                            byte[] buff = new byte[RecvSize];
+
+                            // Size 만큼 Read...
+                            serialPort.Read(buff, 0, RecvSize);
+                            message += Encoding.GetEncoding(51949).GetString(buff); //한글 인코딩을 위한
+                            RecvSize = serialPort.BytesToRead; // RecvSize Update
                         }
                     }
                     catch (IOException) { }
@@ -248,6 +257,7 @@ namespace Oven_Application.ucPanel
                     {
                         if (!string.IsNullOrEmpty(message))
                         {
+
                             //lbLog_Dispatcher(message);
                             string savePathTemp = GetSaveFolderPath("temp");
                             string savePathReceipts = GetSaveFolderPath("receipts");
@@ -277,7 +287,7 @@ namespace Oven_Application.ucPanel
                         }
                     }
                     // -> 녹색 불로 대체
-                    Thread.Sleep(500);
+                    Thread.Sleep(50);
                 }
 
                 if (!_hookingProcessContinue)
@@ -311,6 +321,26 @@ namespace Oven_Application.ucPanel
         {
             bool testPrinterConnection = false;
             SerialPort testPrinterPort = new SerialPort(oSetting.PrinterPort);
+            try
+            {
+                testPrinterPort.Open();
+                testPrinterConnection = true;
+            }
+            catch (Exception ex) { testPrinterConnection = false; }
+            finally
+            {
+                if (testPrinterPort.IsOpen)
+                {
+                    testPrinterPort.Close();
+                }
+            }
+            return testPrinterConnection;
+        }
+
+        private bool fTestPortConnection(string Port)
+        {
+            bool testPrinterConnection = false;
+            SerialPort testPrinterPort = new SerialPort(Port);
             try
             {
                 testPrinterPort.Open();
@@ -555,7 +585,10 @@ namespace Oven_Application.ucPanel
                                         if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
                                         {
                                             // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
-                                            break;
+                                            if (fTestPortConnection(tmpPairRealSerialPort))
+                                            {
+                                                break;
+                                            }
                                         }
                                     }
                                     string stringOut3 = ExecuteSetupcExe($"change {pairKey} PortName={tmpPairRealSerialPort}");
@@ -586,7 +619,10 @@ namespace Oven_Application.ucPanel
                                 if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
                                 {
                                     // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
-                                    break;
+                                    if (fTestPortConnection(tmpPairRealSerialPort))
+                                    {
+                                        break;
+                                    }
                                 }
                             }
                             string stringOut3 = ExecuteSetupcExe($"install PortName={oSetting.SerialPort} PortName={tmpPairRealSerialPort}");
@@ -609,7 +645,10 @@ namespace Oven_Application.ucPanel
                             if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
                             {
                                 // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
-                                break;
+                                if (fTestPortConnection(tmpPairRealSerialPort))
+                                {
+                                    break;
+                                }
                             }
                         }
                         string stringOut3 = ExecuteSetupcExe($"install PortName={oSetting.SerialPort} PortName={tmpPairRealSerialPort}");
@@ -706,7 +745,10 @@ namespace Oven_Application.ucPanel
                     if (!disablePortList.Contains(tmpPairRealSerialPort) && tmpPairRealSerialPort != oSetting.SerialPort && !enablePortList.Contains(tmpPairRealSerialPort))
                     {
                         // 이미 할당되어있는 PortName 또는 RealPortName으로 Change할수 없다.
-                        break;
+                        if (fTestPortConnection(tmpPairRealSerialPort))
+                        {
+                            break;
+                        }
                     }
                 }
                 string stringOut3 = ExecuteSetupcExe($"install PortName={oSetting.SerialPort} PortName={tmpPairRealSerialPort}");
